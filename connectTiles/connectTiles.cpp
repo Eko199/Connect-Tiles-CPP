@@ -2,9 +2,11 @@
 #include <cctype>
 #include <random>
 #include <ctime>
+#include <algorithm>
 
 static const size_t BOARD_SIZE = 20;
 static const size_t FREE_SPACE_SIZE = 8;
+static const double BOARD_FILL_FACTOR = 0.7;
 static const unsigned TILES_TYPE_COUNT = 20;
 static const char EMPTY_TILE = ' ';
 static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
@@ -39,12 +41,23 @@ void initTiles(char* tiles, const unsigned count, const bool useCustomTiles) {
         return;
 	}
 
-    if (count > 20) {
+    if (count > TILES_TYPE_COUNT) {
         throw std::exception("Invalid count for tile types! Must be <= 20.");
     }
 
     for (unsigned i = 0; i < count; ++i) {
         tiles[i] = DEFAULT_TILES[i];
+    }
+}
+
+void shuffleMatrix(char matrix[BOARD_SIZE][BOARD_SIZE]) {
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    for (size_t row = 0; row < BOARD_SIZE; ++row) {
+        for (size_t col = 0; col < BOARD_SIZE; ++col) {
+            const size_t swapRow = rand() % BOARD_SIZE, swapCol = rand() % BOARD_SIZE;
+            std::swap(matrix[row][col], matrix[swapRow][swapCol]);
+        }
     }
 }
 
@@ -56,8 +69,9 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
     unsigned tilesFilled = 0;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
+    //fills boards with random amount of random tiles
     for (unsigned i = 0; i < tileTypes; ++i) {
-        const unsigned count = (1 + std::rand() % ((BOARD_SIZE * BOARD_SIZE - tilesFilled - (tileTypes - i) * 3) / 9)) * 3;
+        const unsigned count = (1 + std::rand() % (BOARD_SIZE * BOARD_SIZE / tileTypes / 3)) * 3;
 
         for (unsigned j = 0; j < count; ++j) {
             board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[i];
@@ -65,11 +79,21 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
         }
     }
 
+    //makes board at least 70% full
+    while (tilesFilled < BOARD_SIZE * BOARD_SIZE * BOARD_FILL_FACTOR) {
+        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
+        board[(tilesFilled + 1) / BOARD_SIZE][(tilesFilled + 1) % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
+        board[(tilesFilled + 2) / BOARD_SIZE][(tilesFilled + 2) % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
+        tilesFilled += 3;
+    }
+
     //fill the rest of the board with empty tiles
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE) {
         board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = EMPTY_TILE;
         ++tilesFilled;
     }
+
+    shuffleMatrix(board);
 }
 
 void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
