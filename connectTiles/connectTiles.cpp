@@ -6,7 +6,13 @@
 static const size_t BOARD_SIZE = 20;
 static const size_t FREE_SPACE_SIZE = 8;
 static const unsigned TILES_TYPE_COUNT = 20;
-static const char DEFAULT_TILES[TILES_TYPE_COUNT] = { '%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬' };
+static const char EMPTY_TILE = ' ';
+static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
+	'%', '&', '?', '*', '#', '^', '+', '=', '-', '/', '\\', '!', '_', '@', '$', '<', '>', '|', '~', ':'
+};
+
+//Unicode doesn't work :(
+//'%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬'
 
 bool contains(const char* arr, const size_t size, const char c) {
 	for (size_t i = 0; i < size; ++i) {
@@ -46,8 +52,24 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
 	if (tileTypes > 20) {
         throw std::exception("Invalid count for tile types! Must be <= 20.");
 	}
- 
+
+    unsigned tilesFilled = 0;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    for (unsigned i = 0; i < tileTypes; ++i) {
+        const unsigned count = (1 + std::rand() % ((BOARD_SIZE * BOARD_SIZE - tilesFilled - (tileTypes - i) * 3) / 9)) * 3;
+
+        for (unsigned j = 0; j < count; ++j) {
+            board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[i];
+            ++tilesFilled;
+        }
+    }
+
+    //fill the rest of the board with empty tiles
+    while (tilesFilled < BOARD_SIZE * BOARD_SIZE) {
+        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = EMPTY_TILE;
+        ++tilesFilled;
+    }
 }
 
 void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
@@ -71,6 +93,7 @@ void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
         choice = static_cast<char>(std::tolower(choice));
     }
 
+    //can be used a static array too
     char* tiles = new char[tileTypes];
     initTiles(tiles, tileTypes, choice == 'y');
 
@@ -78,8 +101,19 @@ void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
     delete[] tiles;
 }
 
+void printGame(char board[BOARD_SIZE][BOARD_SIZE]) {
+	for (size_t row = 0; row < BOARD_SIZE; ++row) {
+        for (size_t col = 0; col < BOARD_SIZE; ++col) {
+            std::cout << board[row][col] << " ";
+        }
+
+        std::cout << std::endl;
+	}
+}
+
 int main() {
     char board[BOARD_SIZE][BOARD_SIZE];
     initGame(board);
+    printGame(board);
     return 0;
 }
