@@ -3,10 +3,12 @@
 #include <random>
 #include <ctime>
 #include <algorithm>
+#include <iomanip>
+#include <windows.h>
 
 static const size_t BOARD_SIZE = 20;
 static const size_t FREE_SPACE_SIZE = 8;
-static const double BOARD_FILL_FACTOR = 0.7;
+static const double BOARD_FILL_FACTOR = 0.75;
 static const unsigned TILES_TYPE_COUNT = 20;
 static const char EMPTY_TILE = ' ';
 static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
@@ -81,9 +83,9 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
 
     //makes board at least 70% full
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE * BOARD_FILL_FACTOR) {
-        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
-        board[(tilesFilled + 1) / BOARD_SIZE][(tilesFilled + 1) % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
-        board[(tilesFilled + 2) / BOARD_SIZE][(tilesFilled + 2) % BOARD_SIZE] = tiles[tilesFilled / 3 % BOARD_SIZE];
+        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[(tilesFilled + 1) / BOARD_SIZE][(tilesFilled + 1) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[(tilesFilled + 2) / BOARD_SIZE][(tilesFilled + 2) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         tilesFilled += 3;
     }
 
@@ -96,7 +98,7 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
     shuffleMatrix(board);
 }
 
-void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
+void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
     int tileTypes;
     std::cout << "Enter the count of different tile types (must be in [8, 20]): ";
     std::cin >> tileTypes;
@@ -123,21 +125,52 @@ void initGame(char board[BOARD_SIZE][BOARD_SIZE]) {
 
     initBoard(board, tiles, tileTypes);
     delete[] tiles;
+
+    //initialize the free space
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        freeSpace[i] = ' ';
+    }
 }
 
-void printGame(char board[BOARD_SIZE][BOARD_SIZE]) {
-	for (size_t row = 0; row < BOARD_SIZE; ++row) {
+void printBoard(char board[BOARD_SIZE][BOARD_SIZE]) {
+    std::cout << std::setw(2) << "   ";
+
+    for (size_t i = 1; i <= BOARD_SIZE; ++i) {
+        std::cout << std::setw(2) << i << " ";
+    }
+
+    std::cout << std::endl;
+
+    for (size_t row = 0; row < BOARD_SIZE; ++row) {
+        std::cout << std::setw(2) << row + 1 << " ";
+
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            std::cout << board[row][col] << " ";
+            std::cout << std::setw(2) << board[row][col] << " ";
         }
 
         std::cout << std::endl;
-	}
+    }
+}
+
+void printGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
+    std::cout << "Current board:" << std::endl << std::endl;
+    printBoard(board);
+
+    std::cout << std::endl << "Free space: " << std::endl;
+
+    const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hStdOut, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED);
+
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        std::cout << std::setw(2) << freeSpace[i];
+    }
+
+    SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 }
 
 int main() {
-    char board[BOARD_SIZE][BOARD_SIZE];
-    initGame(board);
-    printGame(board);
+    char board[BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
+    initGame(board, freeSpace);
+    printGame(board, freeSpace);
     return 0;
 }
