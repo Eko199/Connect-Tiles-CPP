@@ -72,8 +72,10 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     //fills boards with random amount of random tiles
+    const unsigned maxTilesCountOfTypeDivide3 = BOARD_SIZE * BOARD_SIZE / tileTypes / 3;
+
     for (unsigned i = 0; i < tileTypes; ++i) {
-        const unsigned count = (1 + std::rand() % (BOARD_SIZE * BOARD_SIZE / tileTypes / 3)) * 3;
+        const unsigned count = 3 + std::rand() % maxTilesCountOfTypeDivide3 * 3;
 
         for (unsigned j = 0; j < count; ++j) {
             board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[i];
@@ -81,7 +83,7 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
         }
     }
 
-    //makes board at least 70% full
+    //makes board at least 75% full
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE * BOARD_FILL_FACTOR) {
         board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         board[(tilesFilled + 1) / BOARD_SIZE][(tilesFilled + 1) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
@@ -166,11 +168,91 @@ void printGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZ
     }
 
     SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+    std::cout << std::endl;
+}
+
+bool areValidCoordinates(const size_t row, const size_t col) {
+    return row < BOARD_SIZE && col < BOARD_SIZE;
+}
+
+void getCoordinatesChoice(size_t& row, size_t& col) {
+    std::cout << "Enter the x and y of the tile you want to get: ";
+    std::cin >> col >> row;
+
+    while (!areValidCoordinates(--row, --col)) {
+        std::cout << "Invalid coordinates! Must be between 0 and " << BOARD_SIZE << ". Please try again: ";
+        std::cin >> col >> row;
+    }
+}
+
+void checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile) {
+    unsigned count = 0;
+
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        count += freeSpace[i] == newTile;
+    }
+
+    if (count < 3) {
+	    return;
+    }
+
+    //removed the matching tiles
+    unsigned currI = 0;
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        if (freeSpace[i] == newTile) {
+	        continue;
+        }
+
+        freeSpace[currI++] = freeSpace[i];
+    }
+
+    while (currI < FREE_SPACE_SIZE) {
+        freeSpace[currI++] = ' ';
+    }
+
+    std::cout << "Successfully connected " << newTile << "!" << std::endl;
+}
+
+void playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], const size_t row, const size_t col) {
+    size_t freeSpaceTiles = 0;
+
+	for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+		if (freeSpace[i] == ' ') {
+            break;
+		}
+
+        ++freeSpaceTiles;
+	}
+
+    if (freeSpaceTiles == FREE_SPACE_SIZE) {
+        throw std::exception("Free space is full!");
+    }
+
+    freeSpace[freeSpaceTiles] = board[row][col];
+    board[row][col] = ' ';
+
+    if (freeSpace[freeSpaceTiles] != ' ') {
+	    checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]);
+    }
 }
 
 int main() {
     char board[BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
     initGame(board, freeSpace);
-    printGame(board, freeSpace);
+
+    while (true) {
+	    printGame(board, freeSpace);
+
+        size_t tileRow, tileCol;
+        getCoordinatesChoice(tileRow, tileCol);
+
+        try {
+	        playTurn(board, freeSpace, tileRow, tileCol);
+        } catch (std::exception& e) {
+            std::cerr << e.what() << std::endl;
+            continue;
+        }
+    }
+
     return 0;
 }
