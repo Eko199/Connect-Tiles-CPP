@@ -63,7 +63,7 @@ void shuffleMatrix(char matrix[BOARD_SIZE][BOARD_SIZE]) {
     }
 }
 
-void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsigned tileTypes) {
+unsigned initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsigned tileTypes) {
 	if (tileTypes > 20) {
         throw std::exception("Invalid count for tile types! Must be <= 20.");
 	}
@@ -91,6 +91,7 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
         tilesFilled += 3;
     }
 
+    unsigned tilesCount = tilesFilled;
     //fill the rest of the board with empty tiles
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE) {
         board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = EMPTY_TILE;
@@ -98,9 +99,10 @@ void initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsi
     }
 
     shuffleMatrix(board);
+    return tilesCount;
 }
 
-void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
+void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], unsigned& tilesCount) {
     int tileTypes;
     std::cout << "Enter the count of different tile types (must be in [8, 20]): ";
     std::cin >> tileTypes;
@@ -125,7 +127,7 @@ void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE
     char* tiles = new char[tileTypes];
     initTiles(tiles, tileTypes, choice == 'y');
 
-    initBoard(board, tiles, tileTypes);
+    tilesCount = initBoard(board, tiles, tileTypes);
     delete[] tiles;
 
     //initialize the free space
@@ -185,7 +187,7 @@ void getCoordinatesChoice(size_t& row, size_t& col) {
     }
 }
 
-void checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile) {
+bool checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile) {
     unsigned count = 0;
 
     for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
@@ -193,10 +195,10 @@ void checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile
     }
 
     if (count < 3) {
-	    return;
+	    return false;
     }
 
-    //removed the matching tiles
+    //remove the matching tiles
     unsigned currI = 0;
     for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
         if (freeSpace[i] == newTile) {
@@ -211,9 +213,10 @@ void checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile
     }
 
     std::cout << "Successfully connected " << newTile << "!" << std::endl;
+    return true;
 }
 
-void playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], const size_t row, const size_t col) {
+bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], const size_t row, const size_t col) {
     size_t freeSpaceTiles = 0;
 
 	for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
@@ -231,28 +234,40 @@ void playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE
     freeSpace[freeSpaceTiles] = board[row][col];
     board[row][col] = ' ';
 
-    if (freeSpace[freeSpaceTiles] != ' ') {
-	    checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]);
+    const bool hasConnected = freeSpace[freeSpaceTiles] != ' ' && checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]);
+    if (!hasConnected && freeSpaceTiles + 1 == FREE_SPACE_SIZE) {
+        return false;
     }
+
+    return true;
 }
 
 int main() {
     char board[BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
-    initGame(board, freeSpace);
 
-    while (true) {
+    unsigned tilesCount;
+    bool hasLost = false;
+
+    initGame(board, freeSpace, tilesCount);
+
+    while (tilesCount != 0 && !hasLost) {
 	    printGame(board, freeSpace);
 
         size_t tileRow, tileCol;
         getCoordinatesChoice(tileRow, tileCol);
 
         try {
-	        playTurn(board, freeSpace, tileRow, tileCol);
+	        hasLost = !playTurn(board, freeSpace, tileRow, tileCol);
         } catch (std::exception& e) {
             std::cerr << e.what() << std::endl;
             continue;
         }
+
+        --tilesCount;
     }
+
+    printGame(board, freeSpace);
+    std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!");
 
     return 0;
 }
