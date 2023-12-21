@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <windows.h>
 
-static const size_t BOARD_SIZE = 20;
+static const size_t BOARD_SIZE = 5;
 static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
 static const unsigned TILES_TYPE_COUNT = 20;
@@ -102,7 +102,7 @@ unsigned initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const 
     return tilesCount;
 }
 
-void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], unsigned& tilesCount) {
+unsigned setUpGame(char*& tiles) {
     int tileTypes;
     std::cout << "Enter the count of different tile types (must be in [8, 20]): ";
     std::cin >> tileTypes;
@@ -113,27 +113,20 @@ void initGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE
     }
 
     char choice;
-    std::cout << "Do you wish to enter your own symbols for the tiles? (y/n) ";
+    std::cout << "Do you wish to enter your own symbols for the tiles? (y/n)" << std::endl;
     std::cin >> choice;
     choice = static_cast<char>(std::tolower(choice));
 
     while (choice != 'y' && choice != 'n') {
-        std::cout << "Invalid input! Please try again (y/n): ";
+        std::cout << "Invalid input! Please try again (y/n)" << std::endl;
         std::cin >> choice;
         choice = static_cast<char>(std::tolower(choice));
     }
-
-    //can be used a static array too
-    char* tiles = new char[tileTypes];
+    
+    tiles = new char[tileTypes];
     initTiles(tiles, tileTypes, choice == 'y');
 
-    tilesCount = initBoard(board, tiles, tileTypes);
-    delete[] tiles;
-
-    //initialize the free space
-    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
-        freeSpace[i] = ' ';
-    }
+    return tileTypes;
 }
 
 void printBoard(char board[BOARD_SIZE][BOARD_SIZE]) {
@@ -216,22 +209,31 @@ bool checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile
     return true;
 }
 
-bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE], const size_t row, const size_t col) {
+bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
     size_t freeSpaceTiles = 0;
 
-	for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
-		if (freeSpace[i] == ' ') {
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        if (freeSpace[i] == ' ') {
             break;
-		}
+        }
 
         ++freeSpaceTiles;
-	}
+    }
 
     if (freeSpaceTiles == FREE_SPACE_SIZE) {
         throw std::exception("Free space is full!");
     }
 
+    size_t row, col;
+    getCoordinatesChoice(row, col);
     freeSpace[freeSpaceTiles] = board[row][col];
+
+    while (freeSpace[freeSpaceTiles] == ' ') {
+        std::cout << "The selected position is empty! Please try again!" << std::endl;
+	    getCoordinatesChoice(row, col);
+	    freeSpace[freeSpaceTiles] = board[row][col];
+    }
+
     board[row][col] = ' ';
 
     const bool hasConnected = freeSpace[freeSpaceTiles] != ' ' && checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]);
@@ -242,22 +244,22 @@ bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE
     return true;
 }
 
-int main() {
+void playGame(const char* tiles, const unsigned tileTypesCount) {
     char board[BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
 
-    unsigned tilesCount;
+    //initialize the free space
+    for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
+        freeSpace[i] = ' ';
+    }
+
+    unsigned tilesCount = initBoard(board, tiles, tileTypesCount);
     bool hasLost = false;
 
-    initGame(board, freeSpace, tilesCount);
-
     while (tilesCount != 0 && !hasLost) {
-	    printGame(board, freeSpace);
-
-        size_t tileRow, tileCol;
-        getCoordinatesChoice(tileRow, tileCol);
+        printGame(board, freeSpace);
 
         try {
-	        hasLost = !playTurn(board, freeSpace, tileRow, tileCol);
+            hasLost = !playTurn(board, freeSpace);
         } catch (std::exception& e) {
             std::cerr << e.what() << std::endl;
             continue;
@@ -267,7 +269,35 @@ int main() {
     }
 
     printGame(board, freeSpace);
-    std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!");
+    std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!") << std::endl;
+}
 
+int main() {
+    bool inGame = true;
+    char* tiles;
+    const unsigned tileTypesCount = setUpGame(tiles);
+
+    while (inGame) {
+        playGame(tiles, tileTypesCount);
+
+        char choice;
+        std::cout << "Do you want to play again? (y/n)" << std::endl;
+        std::cin >> choice;
+        choice = static_cast<char>(std::tolower(choice));
+
+        while (choice != 'y' && choice != 'n') {
+            std::cout << "Invalid input! Please try again (y/n)" << std::endl;
+            std::cin >> choice;
+            choice = static_cast<char>(std::tolower(choice));
+        }
+
+        inGame = choice == 'y';
+
+        if (inGame) {
+	        std::cout << std::endl << "A new game has started!" << std::endl;
+        }
+    }
+
+    delete[] tiles;
     return 0;
 }
