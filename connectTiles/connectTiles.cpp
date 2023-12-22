@@ -7,6 +7,7 @@
 #include <windows.h>
 
 static const size_t BOARD_SIZE = 5;
+static const size_t MAX_LAYERS = 10;
 static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
 static const unsigned TILES_TYPE_COUNT = 20;
@@ -52,58 +53,57 @@ void initTiles(char* tiles, const unsigned count, const bool useCustomTiles) {
     }
 }
 
-void shuffleMatrix(char matrix[BOARD_SIZE][BOARD_SIZE]) {
+void shuffleMatrix(char matrix[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t size) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    for (size_t row = 0; row < BOARD_SIZE; ++row) {
-        for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            const size_t swapRow = rand() % BOARD_SIZE, swapCol = rand() % BOARD_SIZE;
-            std::swap(matrix[row][col], matrix[swapRow][swapCol]);
-        }
+    for (size_t layer = 0; layer < size; ++layer) {
+	    for (size_t row = 0; row < BOARD_SIZE; ++row) {
+	    	for (size_t col = 0; col < BOARD_SIZE; ++col) {
+	    		const size_t swapLayer = rand() % size, swapRow = rand() % BOARD_SIZE, swapCol = rand() % BOARD_SIZE;
+	    		std::swap(matrix[layer][row][col], matrix[swapLayer][swapRow][swapCol]);
+	    	}
+	    }
     }
 }
 
-unsigned initBoard(char board[BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsigned tileTypes) {
-	if (tileTypes > 20) {
-        throw std::exception("Invalid count for tile types! Must be <= 20.");
+unsigned initBoard(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const char* tiles, const unsigned tileTypes, const size_t layers) {
+	if (tileTypes > TILES_TYPE_COUNT) {
+        throw std::exception("Invalid count for tile types!");
 	}
 
-    unsigned tilesFilled = 0;
     std::srand(static_cast<unsigned>(std::time(nullptr)));
+    unsigned tilesFilled = 0;
 
-    //fills boards with random amount of random tiles
-    const unsigned maxTilesCountOfTypeDivide3 = BOARD_SIZE * BOARD_SIZE / tileTypes / 3;
+    //fills the board with random amount of random tiles
+    const size_t maxTilesCountOfTypeDivide3 = BOARD_SIZE * BOARD_SIZE * layers / tileTypes / 3;
 
     for (unsigned i = 0; i < tileTypes; ++i) {
-        const unsigned count = 3 + std::rand() % maxTilesCountOfTypeDivide3 * 3;
+        const size_t count = 3 + std::rand() % maxTilesCountOfTypeDivide3 * 3;
 
-        for (unsigned j = 0; j < count; ++j) {
-            board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[i];
+        for (size_t j = 0; j < count; ++j) {
+            board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][tilesFilled % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][tilesFilled % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[i];
             ++tilesFilled;
         }
     }
 
     //makes board at least 75% full
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE * BOARD_FILL_FACTOR) {
-        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
-        board[(tilesFilled + 1) / BOARD_SIZE][(tilesFilled + 1) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
-        board[(tilesFilled + 2) / BOARD_SIZE][(tilesFilled + 2) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][tilesFilled % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][tilesFilled % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         tilesFilled += 3;
     }
 
-    unsigned tilesCount = tilesFilled;
     //fill the rest of the board with empty tiles
-    while (tilesFilled < BOARD_SIZE * BOARD_SIZE) {
-        board[tilesFilled / BOARD_SIZE][tilesFilled % BOARD_SIZE] = EMPTY_TILE;
-        ++tilesFilled;
+    for (size_t tilesCount = tilesFilled; tilesCount < BOARD_SIZE * BOARD_SIZE * layers; ++tilesCount) {
+        board[tilesCount / (BOARD_SIZE * BOARD_SIZE)][tilesCount % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][tilesCount % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = EMPTY_TILE;
     }
 
-    shuffleMatrix(board);
-    return tilesCount;
+    shuffleMatrix(board, layers);
+    return tilesFilled;
 }
 
-unsigned setUpGame(char*& tiles) {
-    int tileTypes;
+size_t setUpGame(char*& tiles, unsigned& tileTypes) {
     std::cout << "Enter the count of different tile types (must be in [8, 20]): ";
     std::cin >> tileTypes;
 
@@ -126,10 +126,24 @@ unsigned setUpGame(char*& tiles) {
     tiles = new char[tileTypes];
     initTiles(tiles, tileTypes, choice == 'y');
 
-    return tileTypes;
+    size_t layers;
+    std::cout << "Enter the count of layers the game will have (must be in [1, 10]): ";
+    std::cin >> layers;
+
+    return layers;
 }
 
-void printBoard(char board[BOARD_SIZE][BOARD_SIZE]) {
+size_t topNonEmptyLayerAtPos(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const size_t row, const size_t col) {
+    size_t layer = 0;
+
+    while (board[layer][row][col] == EMPTY_TILE && layer < layers - 1) {
+        ++layer;
+    }
+
+    return layer;
+}
+
+void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers) {
     std::cout << std::setw(2) << "   ";
 
     for (size_t i = 1; i <= BOARD_SIZE; ++i) {
@@ -142,16 +156,17 @@ void printBoard(char board[BOARD_SIZE][BOARD_SIZE]) {
         std::cout << std::setw(2) << row + 1 << " ";
 
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            std::cout << std::setw(2) << board[row][col] << " ";
+            const size_t layer = topNonEmptyLayerAtPos(board, layers, row, col);
+            std::cout << std::setw(2) << board[layer][row][col] << " ";
         }
 
         std::cout << std::endl;
     }
 }
 
-void printGame(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
+void printGame(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const char freeSpace[FREE_SPACE_SIZE]) {
     std::cout << "Current board:" << std::endl << std::endl;
-    printBoard(board);
+    printBoard(board, layers);
 
     std::cout << std::endl << "Free space: " << std::endl;
 
@@ -209,7 +224,7 @@ bool checkFreeSpaceForTriple(char freeSpace[FREE_SPACE_SIZE], const char newTile
     return true;
 }
 
-bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE]) {
+bool playTurn(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, char freeSpace[FREE_SPACE_SIZE]) {
     size_t freeSpaceTiles = 0;
 
     for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
@@ -226,40 +241,38 @@ bool playTurn(char board[BOARD_SIZE][BOARD_SIZE], char freeSpace[FREE_SPACE_SIZE
 
     size_t row, col;
     getCoordinatesChoice(row, col);
-    freeSpace[freeSpaceTiles] = board[row][col];
+    size_t layer = topNonEmptyLayerAtPos(board, layers, row, col);
+    freeSpace[freeSpaceTiles] = board[layer][row][col];
 
-    while (freeSpace[freeSpaceTiles] == ' ') {
+    while (freeSpace[freeSpaceTiles] == EMPTY_TILE) {
         std::cout << "The selected position is empty! Please try again!" << std::endl;
 	    getCoordinatesChoice(row, col);
-	    freeSpace[freeSpaceTiles] = board[row][col];
+        layer = topNonEmptyLayerAtPos(board, layers, row, col);
+	    freeSpace[freeSpaceTiles] = board[layer][row][col];
     }
 
-    board[row][col] = ' ';
-
-    const bool hasConnected = freeSpace[freeSpaceTiles] != ' ' && checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]);
-    if (!hasConnected && freeSpaceTiles + 1 == FREE_SPACE_SIZE) {
-        return false;
-    }
-
-    return true;
+    board[layer][row][col] = EMPTY_TILE;
+    return checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]) || freeSpaceTiles + 1 < FREE_SPACE_SIZE;
 }
 
-void playGame(const char* tiles, const unsigned tileTypesCount) {
-    char board[BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
+void playGame(const char* tiles, const unsigned tileTypesCount, const size_t layers) {
+    char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
 
     //initialize the free space
     for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
         freeSpace[i] = ' ';
     }
 
-    unsigned tilesCount = initBoard(board, tiles, tileTypesCount);
+    //Each game the count of each type of tiles is random, because it's more fun.
+    //For static count the first board needs to be saved, and shuffled each game.
+    unsigned tilesCount = initBoard(board, tiles, tileTypesCount, layers);
     bool hasLost = false;
 
     while (tilesCount != 0 && !hasLost) {
-        printGame(board, freeSpace);
+        printGame(board, layers, freeSpace);
 
         try {
-            hasLost = !playTurn(board, freeSpace);
+            hasLost = !playTurn(board, layers, freeSpace);
         } catch (std::exception& e) {
             std::cerr << e.what() << std::endl;
             continue;
@@ -268,17 +281,18 @@ void playGame(const char* tiles, const unsigned tileTypesCount) {
         --tilesCount;
     }
 
-    printGame(board, freeSpace);
+    printGame(board, layers, freeSpace);
     std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!") << std::endl;
 }
 
 int main() {
     bool inGame = true;
     char* tiles;
-    const unsigned tileTypesCount = setUpGame(tiles);
+    unsigned tileTypesCount;
+    const size_t layers = setUpGame(tiles, tileTypesCount);
 
     while (inGame) {
-        playGame(tiles, tileTypesCount);
+        playGame(tiles, tileTypesCount, layers);
 
         char choice;
         std::cout << "Do you want to play again? (y/n)" << std::endl;
