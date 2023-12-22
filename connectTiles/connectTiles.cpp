@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <windows.h>
 
-static const size_t BOARD_SIZE = 5;
+static const size_t BOARD_SIZE = 20;
 static const size_t MAX_LAYERS = 10;
 static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
@@ -14,6 +14,18 @@ static const unsigned TILES_TYPE_COUNT = 20;
 static const char EMPTY_TILE = ' ';
 static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
 	'%', '&', '?', '*', '#', '^', '+', '=', '-', '/', '\\', '!', '_', '@', '$', '<', '>', '|', '~', ':'
+};
+static const byte LAYER_COLORS[MAX_LAYERS] = {
+	FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN,
+	FOREGROUND_BLUE | FOREGROUND_INTENSITY, 
+	FOREGROUND_BLUE,
+	FOREGROUND_BLUE | FOREGROUND_GREEN,
+    FOREGROUND_BLUE | FOREGROUND_RED,
+    FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_INTENSITY,
+	FOREGROUND_GREEN | FOREGROUND_RED,
+    FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY,
+	FOREGROUND_RED | FOREGROUND_INTENSITY,
+    FOREGROUND_RED
 };
 
 //Unicode doesn't work :(
@@ -87,7 +99,7 @@ unsigned initBoard(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const char* t
     }
 
     //makes board at least 75% full
-    while (tilesFilled < BOARD_SIZE * BOARD_SIZE * BOARD_FILL_FACTOR) {
+    while (tilesFilled < BOARD_SIZE * BOARD_SIZE * layers * BOARD_FILL_FACTOR) {
         board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][tilesFilled % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][tilesFilled % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
@@ -143,6 +155,19 @@ size_t topNonEmptyLayerAtPos(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE
     return layer;
 }
 
+void printLayersLegend(const size_t layers) {
+    std::cout << "Each layer is represented by a different color:" << std::endl;
+    const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    for (size_t layer = 0; layer < layers; ++layer) {
+        SetConsoleTextAttribute(hStdOut, LAYER_COLORS[layer]);
+        std::cout << "Layer " << layer + 1 << std::endl;
+    }
+
+    SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+    std::cout << std::endl;
+}
+
 void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers) {
     std::cout << std::setw(2) << "   ";
 
@@ -152,14 +177,18 @@ void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size
 
     std::cout << std::endl;
 
+    const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
     for (size_t row = 0; row < BOARD_SIZE; ++row) {
         std::cout << std::setw(2) << row + 1 << " ";
 
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
             const size_t layer = topNonEmptyLayerAtPos(board, layers, row, col);
+
+            SetConsoleTextAttribute(hStdOut, LAYER_COLORS[layer]);
             std::cout << std::setw(2) << board[layer][row][col] << " ";
         }
 
+        SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
         std::cout << std::endl;
     }
 }
@@ -292,6 +321,7 @@ int main() {
     const size_t layers = setUpGame(tiles, tileTypesCount);
 
     while (inGame) {
+        printLayersLegend(layers);
         playGame(tiles, tileTypesCount, layers);
 
         char choice;
