@@ -14,11 +14,12 @@ static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
 static const unsigned TILES_TYPE_COUNT = 20;
 static const char EMPTY_TILE = ' ';
-static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
+static const char DEFAULT_TILES[TILES_TYPE_COUNT] = 
+{
 	'%', '&', '?', '*', '#', '^', '+', '=', '-', '/', '\\', '!', '_', '@', '$', '<', '>', '|', '~', ':'
+    //Unicode doesn't work :(
+    //'%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬'
 };
-//Unicode doesn't work :(
-//'%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬'
 static const byte LAYER_COLORS[MAX_LAYERS] = {
 	FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN,
 	FOREGROUND_BLUE | FOREGROUND_INTENSITY, 
@@ -102,8 +103,8 @@ unsigned initBoard(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const char* t
     //makes board at least 75% full
     while (tilesFilled < BOARD_SIZE * BOARD_SIZE * layers * BOARD_FILL_FACTOR) {
         board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][tilesFilled % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][tilesFilled % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
-        board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
-        board[tilesFilled / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[(tilesFilled + 1) / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 1) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
+        board[(tilesFilled + 2) / (BOARD_SIZE * BOARD_SIZE)][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) / BOARD_SIZE][(tilesFilled + 2) % (BOARD_SIZE * BOARD_SIZE) % BOARD_SIZE] = tiles[tilesFilled / 3 % tileTypes];
         tilesFilled += 3;
     }
 
