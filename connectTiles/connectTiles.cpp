@@ -5,10 +5,11 @@
 #include <algorithm>
 #include <iomanip>
 #include <cstring>
+#include <fstream>
 #include <windows.h>
 
 static const size_t STR_SIZE = 1000;
-static const size_t BOARD_SIZE = 5;
+static const size_t BOARD_SIZE = 20;
 static const size_t MAX_LAYERS = 10;
 static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
@@ -32,6 +33,28 @@ static const byte LAYER_COLORS[MAX_LAYERS] = {
 	FOREGROUND_RED | FOREGROUND_INTENSITY,
     FOREGROUND_RED
 };
+
+void readStatsFromFile(unsigned& wins, unsigned& losses, unsigned& winStreak, unsigned& bestWinStreak) {
+    std::ifstream file("stats.txt");
+
+    if (file.good()) {
+        file >> wins >> losses >> winStreak >> bestWinStreak;
+    }
+
+    file.close();
+}
+
+void saveStatsToFile(const unsigned wins, const unsigned losses, const unsigned winStreak, const unsigned bestWinStreak) {
+    std::ofstream file("stats.txt");
+
+    if (file.good()) {
+        file << wins << " " << losses << " " << winStreak << " " << bestWinStreak;
+    } else {
+        std::cerr << "There was an error while saving the stats!";
+    }
+
+    file.close();
+}
 
 bool contains(const char* arr, const size_t size, const char c) {
 	for (size_t i = 0; i < size; ++i) {
@@ -345,7 +368,7 @@ void spectatorMode(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t 
     }
 }
 
-void playGame(const char* tiles, const unsigned tileTypesCount, const size_t layers) {
+bool playGame(const char* tiles, const unsigned tileTypesCount, const size_t layers) {
     char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
 
     //initialize the free space
@@ -386,10 +409,14 @@ void playGame(const char* tiles, const unsigned tileTypesCount, const size_t lay
     }
 
     printGame(board, layers, freeSpace);
-    std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!") << std::endl;
+    std::cout << (tilesCount == 0 ? "You win! Congratulations!!!" : "Game over! Better luck next time!") << std::endl << std::endl;
+    return tilesCount == 0;
 }
 
 int main() {
+    unsigned wins = 0, losses = 0, winStreak = 0, bestWinStreak = 0;
+    readStatsFromFile(wins, losses, winStreak, bestWinStreak);
+
     bool inGame = true;
     char* tiles;
     unsigned tileTypesCount;
@@ -397,7 +424,23 @@ int main() {
 
     while (inGame) {
         printLayersLegend(layers);
-        playGame(tiles, tileTypesCount, layers);
+        const bool hasWon = playGame(tiles, tileTypesCount, layers);
+
+        if (hasWon) {
+            ++wins;
+            ++winStreak;
+
+            if (winStreak > bestWinStreak) {
+                bestWinStreak = winStreak;
+            }
+        } else {
+            ++losses;
+            winStreak = 0;
+        }
+
+        std::cout << "Current win/loss ratio: " << wins << "/" << losses << std::endl;
+        std::cout << "Current win streak: " << winStreak << std::endl;
+        std::cout << "Best win streak: " << bestWinStreak << std::endl << std::endl;
 
         char choice;
         std::cout << "Do you want to play again? (y/n)" << std::endl;
@@ -417,6 +460,7 @@ int main() {
         }
     }
 
+    saveStatsToFile(wins, losses, winStreak, bestWinStreak);
     delete[] tiles;
     return 0;
 }
