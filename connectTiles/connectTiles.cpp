@@ -4,9 +4,11 @@
 #include <ctime>
 #include <algorithm>
 #include <iomanip>
+#include <cstring>
 #include <windows.h>
 
-static const size_t BOARD_SIZE = 20;
+static const size_t STR_SIZE = 1000;
+static const size_t BOARD_SIZE = 5;
 static const size_t MAX_LAYERS = 10;
 static const size_t FREE_SPACE_SIZE = 8;
 static const double BOARD_FILL_FACTOR = 0.75;
@@ -15,6 +17,8 @@ static const char EMPTY_TILE = ' ';
 static const char DEFAULT_TILES[TILES_TYPE_COUNT] = {
 	'%', '&', '?', '*', '#', '^', '+', '=', '-', '/', '\\', '!', '_', '@', '$', '<', '>', '|', '~', ':'
 };
+//Unicode doesn't work :(
+//'%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬'
 static const byte LAYER_COLORS[MAX_LAYERS] = {
 	FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN,
 	FOREGROUND_BLUE | FOREGROUND_INTENSITY, 
@@ -27,9 +31,6 @@ static const byte LAYER_COLORS[MAX_LAYERS] = {
 	FOREGROUND_RED | FOREGROUND_INTENSITY,
     FOREGROUND_RED
 };
-
-//Unicode doesn't work :(
-//'%', '&', '?', '*', '#', '⌺', '⌻', '⌹', '⍔', '⍍', '⍟', '⍰', '@', '$', '⌘', '⌗', 'ↂ', 'ↀ', '∰', '∬'
 
 bool contains(const char* arr, const size_t size, const char c) {
 	for (size_t i = 0; i < size; ++i) {
@@ -145,16 +146,6 @@ size_t setUpGame(char*& tiles, unsigned& tileTypes) {
     return layers;
 }
 
-size_t topNonEmptyLayerAtPos(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const size_t row, const size_t col) {
-    size_t layer = 0;
-
-    while (board[layer][row][col] == EMPTY_TILE && layer < layers - 1) {
-        ++layer;
-    }
-
-    return layer;
-}
-
 void printLayersLegend(const size_t layers) {
     std::cout << "Each layer is represented by a different color:" << std::endl;
     const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -168,7 +159,17 @@ void printLayersLegend(const size_t layers) {
     std::cout << std::endl;
 }
 
-void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers) {
+size_t topNonEmptyLayerAtPos(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const size_t row, const size_t col) {
+    size_t layer = 0;
+
+    while (board[layer][row][col] == EMPTY_TILE && layer < layers - 1) {
+        ++layer;
+    }
+
+    return layer;
+}
+
+void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const size_t currentLayer = 0) {
     std::cout << std::setw(2) << "   ";
 
     for (size_t i = 1; i <= BOARD_SIZE; ++i) {
@@ -182,7 +183,7 @@ void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size
         std::cout << std::setw(2) << row + 1 << " ";
 
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            const size_t layer = topNonEmptyLayerAtPos(board, layers, row, col);
+            const size_t layer = currentLayer + topNonEmptyLayerAtPos(board + currentLayer, layers, row, col);
 
             SetConsoleTextAttribute(hStdOut, LAYER_COLORS[layer]);
             std::cout << std::setw(2) << board[layer][row][col] << " ";
@@ -193,13 +194,26 @@ void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size
     }
 }
 
-void printGame(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const char freeSpace[FREE_SPACE_SIZE]) {
-    std::cout << "Current board:" << std::endl << std::endl;
-    printBoard(board, layers);
+void printGame(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, const char freeSpace[FREE_SPACE_SIZE], const size_t currentLayer = 0) {
+    if (currentLayer >= layers) {
+        throw std::exception("Invalid layer to print!");
+    }
+
+    const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (currentLayer == 0) {
+	    std::cout << "Current board:";
+    } else {
+        SetConsoleTextAttribute(hStdOut, LAYER_COLORS[currentLayer]);
+        std::cout << "Showing layer " << currentLayer + 1 << ":";
+        SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+    }
+
+    std::cout << std::endl << std::endl;
+    printBoard(board, layers, currentLayer);
 
     std::cout << std::endl << "Free space: " << std::endl;
 
-    const HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hStdOut, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED);
 
     for (size_t i = 0; i < FREE_SPACE_SIZE; ++i) {
@@ -208,6 +222,20 @@ void printGame(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_
 
     SetConsoleTextAttribute(hStdOut, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
     std::cout << std::endl;
+}
+
+size_t getTopNonEmptyLayer(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers) {
+    for (size_t layer = 0; layer < layers; ++layer) {
+    	for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (board[layer][row][col] != EMPTY_TILE) {
+                    return layer;
+                }
+            }
+        }
+    }
+
+    return layers;
 }
 
 bool areValidCoordinates(const size_t row, const size_t col) {
@@ -284,6 +312,38 @@ bool playTurn(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layer
     return checkFreeSpaceForTriple(freeSpace, freeSpace[freeSpaceTiles]) || freeSpaceTiles + 1 < FREE_SPACE_SIZE;
 }
 
+void spectatorMode(char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size_t layers, char freeSpace[FREE_SPACE_SIZE]) {
+    std::cout << std::endl << "Possible commands: " << std::endl;
+    std::cout << "DOWN: visualize lower layer" << std::endl;
+    std::cout << "UP: visualize upper layer" << std::endl;
+    std::cout << "EXIT: return to top layer" << std::endl;
+
+    char command[STR_SIZE];
+    std::cin.ignore();
+    std::cin.getline(command, STR_SIZE);
+    std::cout << std::endl;
+
+    size_t currentLayer = getTopNonEmptyLayer(board, layers);
+
+    while (strcmp(command, "EXIT") != 0) {
+        if (strcmp(command, "UP") == 0 && currentLayer > 0) {
+            printGame(board, layers, freeSpace, --currentLayer);
+        } else if (strcmp(command, "DOWN") == 0 && currentLayer + 1 < layers) {
+            printGame(board, layers, freeSpace, ++currentLayer);
+        } else {
+            std::cout << "Invalid command! Please try again:" << std::endl;
+        }
+
+        std::cout << "Possible commands: " << std::endl;
+        std::cout << "DOWN: visualize lower layer" << std::endl;
+        std::cout << "UP: visualize upper layer" << std::endl;
+        std::cout << "EXIT: return to top layer" << std::endl;
+
+        std::cin.getline(command, STR_SIZE);
+        std::cout << std::endl;
+    }
+}
+
 void playGame(const char* tiles, const unsigned tileTypesCount, const size_t layers) {
     char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], freeSpace[FREE_SPACE_SIZE];
 
@@ -300,14 +360,28 @@ void playGame(const char* tiles, const unsigned tileTypesCount, const size_t lay
     while (tilesCount != 0 && !hasLost) {
         printGame(board, layers, freeSpace);
 
-        try {
-            hasLost = !playTurn(board, layers, freeSpace);
-        } catch (std::exception& e) {
-            std::cerr << e.what() << std::endl;
-            continue;
+        std::cout << "What would you like to do?" << std::endl;
+        std::cout << "1) Take a tile out" << std::endl;
+        std::cout << "2) Visualize other layers" << std::endl;
+
+        char choice;
+        std::cin >> choice;
+
+        while (choice != '1' && choice != '2') {
+            std::cout << "Invalid input (1/2)! Please try again: ";
+            std::cin >> choice;
         }
 
-        --tilesCount;
+        try {
+            if (choice == '1') {
+		        hasLost = !playTurn(board, layers, freeSpace);
+            	--tilesCount;
+	        } else {
+		        spectatorMode(board, layers, freeSpace);
+	        }
+        } catch (std::exception& e) {
+            std::cerr << e.what() << std::endl;
+        }
     }
 
     printGame(board, layers, freeSpace);
