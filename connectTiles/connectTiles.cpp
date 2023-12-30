@@ -207,7 +207,7 @@ void printBoard(const char board[MAX_LAYERS][BOARD_SIZE][BOARD_SIZE], const size
         std::cout << std::setw(2) << row + 1 << " ";
 
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            const size_t layer = currentLayer + topNonEmptyLayerAtPos(board + currentLayer, layers, row, col);
+            const size_t layer = currentLayer + topNonEmptyLayerAtPos(board + currentLayer, layers - currentLayer, row, col);
 
             SetConsoleTextAttribute(hStdOut, LAYER_COLORS[layer]);
             std::cout << std::setw(2) << board[layer][row][col] << " ";
